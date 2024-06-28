@@ -57,10 +57,14 @@ cache_progname() {
   esac
 }
 
-log() {
-  cache_progname
-  logger -t "$progname" "$@"
-}
+# fd_logger: bind value now, possibly after assigning default. 
+eval '
+  log() {
+    cache_progname
+    echo "$progname: $@"  1>&'${fd_logger:=9}'
+  }
+'
+export fd_logger  # so subshells inherit current value by default
 
 error() {
   log "error: $@"
@@ -76,10 +80,14 @@ debug() {
   fi
 }
 
-result () {
-  log "result:" "$@"
-  echo "$@"
-}
+# fd_result: bind value now, possibly after assigning default.
+eval '
+  result() {
+    log "result:" "$@"
+    echo "$@"  1>&'${fd_result:=1}'
+  }
+'
+export fd_result  # so subshells inherit current value by default
 
 # shim to make it easier to use os-prober outside d-i
 if ! type mapdevfs >/dev/null 2>&1; then

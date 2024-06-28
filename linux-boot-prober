@@ -1,4 +1,12 @@
 #!/bin/sh
+
+# dash shell does not have "{varname}>&1" feature that bash shell has
+# for auto-assignment of new filedescriptors.
+# It is cumbersome to write the 'eval' to use our own variables in redirections.
+# Therefore use fixed numbers.
+export fd_result=3  # file descriptor for external results
+export fd_logger=9  # file descriptor for input to logger
+
 . /usr/share/os-prober/common.sh
 
 set -e
@@ -19,6 +27,7 @@ bootuuid=
 
 grep "^/dev/" /proc/mounts | parse_proc_mounts >"$OS_PROBER_TMP/mounted-map" || true
 
+( (
 if [ -z "$1" ]; then
 	ERR=y
 elif [ "$1" = btrfs -a -z "$2" ]; then
@@ -186,3 +195,5 @@ else
 		fi
 	fi
 fi
+) 9>&1 | logger 1>&-  # fd_logger
+) 3>&1  # fd_result
