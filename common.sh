@@ -155,6 +155,7 @@ parse_proc_mounts () {
 	done
 }
 
+# add forth parameter to pickup btrfs subvol info
 parsefstab () {
 	while read -r line; do
 		case "$line" in
@@ -165,10 +166,20 @@ parsefstab () {
 				set -f
 				set -- $line
 				set +f
-				printf '%s %s %s\n' "$1" "$2" "$3"
+				printf '%s %s %s %s\n' "$1" "$2" "$3" "$4"
 			;;
 		esac
 	done
+}
+
+#check_btrfs_mounted $bootsv $bootuuid)
+check_btrfs_mounted () {
+	bootsv="$1"
+	bootuuid="$2"
+	bootdev=$(blkid | grep "$bootuuid" | cut -d ':' -f  1)
+	bindfrom=$(grep " btrfs " /proc/self/mountinfo |
+		   grep " $bootdev " | grep " /$bootsv " | cut -d ' ' -f 5)
+	printf "%s" "$bindfrom"
 }
 
 unescape_mount () {

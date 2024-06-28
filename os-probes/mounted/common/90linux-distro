@@ -7,6 +7,8 @@ set -e
 partition="$1"
 dir="$2"
 type="$3"
+uuid="$4"
+subvol="$5"
 
 # This test is inaccurate, but given separate / and /boot partitions and the
 # fact that only some architectures have ld-linux.so, I can't see anything
@@ -143,7 +145,11 @@ if (ls "$dir"/lib*/ld*.so* && [ -d "$dir/boot" ] || ls "$dir"/usr/lib*/ld*.so*) 
 	fi
 	
         label="$(count_next_label "$short")"
-	result "$partition:$long:$label:linux"
+	if [ "x$type" = "xbtrfs" -a "x$uuid" != "x" -a "x$subvol" != "x" ]; then
+		result "$partition:$long:$label:linux:$type:$uuid:$subvol"
+	else
+		result "$partition:$long:$label:linux"
+	fi
 	exit 0
 else
 	exit 1

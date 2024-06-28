@@ -76,9 +76,12 @@ partitions () {
 
 	# Also detect OSes on LVM volumes (assumes LVM is active)
 	if type lvs >/dev/null 2>&1; then
-		echo "$(LVM_SUPPRESS_FD_WARNINGS=1 log_output lvs --noheadings --separator : -o vg_name,lv_name |
+		echo "$(LVM_SUPPRESS_FD_WARNINGS=1 log_output lvs --noheadings --separator : -o vg_name,lv_name 2>/dev/null |
 			sed "s|-|--|g;s|^[[:space:]]*\(.*\):\(.*\)$|/dev/mapper/\1-\2|")"
 	fi
+
+	# now lets make sure we got all of the btrfs partitions and disks
+	blkid | grep 'TYPE="btrfs"' | cut -d ':' -f 1
 }
 
 parse_proc_swaps () {
@@ -136,6 +139,8 @@ if [ -f /proc/mdstat ] ; then
 	grep "^md" /proc/mdstat | cut -d: -f2- | parse_proc_mdstat >"$OS_PROBER_TMP/raided-map" || true
 fi
 
+: >"$OS_PROBER_TMP/btrfs-vols"
+
 for partition in $(partitions); do
 	if ! mapped="$(mapdevfs "$partition")"; then
 		log "Device '$partition' does not exist; skipping"
@@ -154,7 +159,26 @@ for partition in $(partitions); do
 		continue
 	fi
 
-	if ! grep -q "^$mapped " "$OS_PROBER_TMP/mounted-map" ; then
+	# do btrfs processing here; both mounted and unmounted will
+	# be handled by 50mounted-tests so we can do a subvol only once.
+	type=$(blkid -o value -s TYPE $mapped || true)
+	if [ "$type" = btrfs ]; then
+		uuid=$(blkid -o value -s UUID $mapped)
+		if grep -q "^$uuid" "$OS_PROBER_TMP/btrfs-vols" ; then
+			continue
+		fi
+		debug "btrfs volume uuid=$uuid partition=$partition"
+		echo "$uuid" >>"$OS_PROBER_TMP/btrfs-vols"
+		test="/usr/lib/os-probes/50mounted-tests"
+		if [ -f "$test" ] && [ -x "$test" ]; then
+			debug "running $test on btrfs $partition"
+			if "$test" btrfs "$uuid" "$partition"; then
+				debug "os detected by $test"
+				continue
+			fi
+		fi
+
+	elif ! grep -q "^$mapped " "$OS_PROBER_TMP/mounted-map" ; then
 		for test in /usr/lib/os-probes/*; do
 			if [ -f "$test" ] && [ -x "$test" ]; then
 				debug "running $test on $partition"

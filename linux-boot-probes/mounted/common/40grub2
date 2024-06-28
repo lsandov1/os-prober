@@ -2,17 +2,30 @@
 . /usr/share/os-prober/common.sh
 set -e
 
+# add support for btrfs with no separate /boot
+# that is, rootsv = bootsv
 partition="$1"
 bootpart="$2"
 mpoint="$3"
 type="$4"
+rootsv="$5"
+bootsv="$6"
 
 found_item=0
 
 entry_result () {
+	if [ "x$type" = "xbtrfs" -a "$partition" = "$bootpart" ]; then
+		# trim off the leading subvol
+		kernelfile=$(echo "$kernel" | cut -d '/' -f 2- | cut -d '/' -f 2-)
+		if [ "x$rootsv" != "x$bootsv" ]; then
+		   kernelfile="/boot/$kernelfile"
+		fi
+	else
+		kernelfile=$kernel
+	fi
 	if [ "$ignore_item" = 0 ] && \
 	   [ -n "$kernel" ] && \
-	   [ -e "$mpoint/$kernel" ]; then
+	   [ -e "$mpoint/$kernelfile" ]; then
 		result "$rootpart:$bootpart:$title:$kernel:$initrd:$parameters"
 		found_item=1
 	fi
