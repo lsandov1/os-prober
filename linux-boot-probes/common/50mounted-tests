@@ -13,6 +13,8 @@ do_unmount() {
 	rmdir "$tmpmnt" || true
 }
 
+trap do_unmount ERR
+
 partition="$1"
 
 types="$(fs_type "$partition")"
